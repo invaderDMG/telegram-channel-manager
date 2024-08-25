@@ -17,7 +17,7 @@ channel_invite_link = os.getenv('CHANNEL_INVITE_LINK')
 client = TelegramClient(StringSession(string_session), api_id, api_hash)
 
 # Definir el patrón de búsqueda para el nombre del archivo
-pattern = re.compile(r"Jujutsu Kaisen (\d{3}) .*\.mobi")
+pattern = re.compile(r"Ranma ½ \(2-in-1 Edition\) v(\d{2}) .*\.mobi")
 
 async def check_connection():
     try:
@@ -37,7 +37,7 @@ async def preview_or_edit_captions(write=False):
             match = pattern.match(file_name)
             if match:
                 version = match.group(1)  # Extraer los dos dígitos de la versión
-                new_caption = f"Jujutsu Kaisen c{version}"
+                new_caption = f"Ranma ½ v{version}"
                 if write:
                     # Editar el caption si el archivo es .mobi y cumple con el patrón
                     await client.edit_message(channel, message.id, new_caption)

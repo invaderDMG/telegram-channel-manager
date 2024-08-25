@@ -18,8 +18,17 @@ client = TelegramClient(StringSession(string_session), api_id, api_hash)
 # Definir el patrón de búsqueda para el nombre del archivo
 pattern = re.compile(r"(.+?)\s+[vc](\d{2,3})")  # Captura el nombre de la serie y el número de volumen o capítulo
 
+async def delete_previous_toc_messages(channel):
+    async for message in client.iter_messages(channel):
+        if message.text and "#tableOfContents" in message.text:
+            await message.delete()
+            print(f"Mensaje {message.id} eliminado.")
+
 async def generate_series_toc():
     channel = await client.get_entity(channel_invite_link)
+
+    # Eliminar mensajes previos que contienen "#tableOfContents"
+    await delete_previous_toc_messages(channel)
 
     toc = {}
     
@@ -55,6 +64,8 @@ async def generate_series_toc():
             for i in range(0, len(toc[series_name]['chapters']), 10):
                 toc_message += ' '.join(toc[series_name]['chapters'][i:i+10]) + '\n'
 
+        toc_message += "#tableOfContents"  # Añadir #tableOfContents al final de cada mensaje
+
         series_message = await client.send_message(channel, toc_message)
         series_link = f"📚 **[{series_name}](https://t.me/c/{channel.id}/{series_message.id})**"
         series_links.append(f"• {series_link}")
@@ -63,12 +74,14 @@ async def generate_series_toc():
     series_links = sorted(series_links, key=lambda x: x.lower())
 
     # Crear la tabla de contenidos general con formato y emojis
-    toc_overview_message = "📖 **TABLA DE CONTENIDOS DE SERIES**\n\n" + "\n".join(series_links)
+    toc_overview_message = "📖 **TABLA DE CONTENIDOS DE SERIES**\n\n" + "\n".join(series_links) + "\n#tableOfContents"
     print("Tabla de Contenidos de Series generada:")
     print(toc_overview_message)
 
-    # Enviar la tabla de contenidos general al canal
-    await client.send_message(channel, toc_overview_message)
+    # Enviar la tabla de contenidos general al canal y fijar el mensaje
+    toc_overview_msg = await client.send_message(channel, toc_overview_message)
+    await client.pin_message(channel, toc_overview_msg, notify=False)
+    print(f"Tabla de contenidos general fijada (mensaje {toc_overview_msg.id}).")
 
 if __name__ == "__main__":
     with client:
