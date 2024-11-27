@@ -8,6 +8,8 @@ Este repositorio contiene tres scripts principales para gestionar mensajes y con
 - Python 3.x
 - Telethon
 - dotenv
+- Una app configurada en https://my.telegram.org/auth para poder obtener un api_id y un api_hash
+- el enlace de invitación al canal que quieres gestionar
 
 Puedes instalar las dependencias necesarias utilizando:
 

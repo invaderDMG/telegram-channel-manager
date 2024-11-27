@@ -3,6 +3,7 @@ import re
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from dotenv import load_dotenv
+from tabla_de_contenidos import TablaDeContenidos
 
 # Cargar las variables de entorno desde el archivo .env
 load_dotenv()
@@ -14,9 +15,6 @@ channel_invite_link = os.getenv('CHANNEL_INVITE_LINK')
 
 # Crear una sesión de Telegram usando el número de teléfono
 client = TelegramClient(StringSession(string_session), api_id, api_hash)
-
-# Definir el patrón de búsqueda para el nombre del archivo
-pattern = re.compile(r"(.+?)\s+[vc](\d{2,3})")  # Captura el nombre de la serie y el número de volumen o capítulo
 
 async def delete_previous_toc_messages(channel):
     async for message in client.iter_messages(channel):
@@ -30,58 +28,20 @@ async def generate_series_toc():
     # Eliminar mensajes previos que contienen "#tableOfContents"
     await delete_previous_toc_messages(channel)
 
-    toc = {}
-    
+    toc = TablaDeContenidos()
+
     async for message in client.iter_messages(channel, reverse=True):  # Iterar en orden cronológico (de más antiguo a más nuevo)
         if message.media and message.file and message.message:
-            match = pattern.match(message.message)
+            match = re.match(r"(.+?)\s+[vc](\d{2,3})", message.message)
             if match:
                 series_name = match.group(1).strip()
                 number = match.group(2)
-                link = f"[v{number:02}](https://t.me/c/{channel.id}/{message.id})" if 'v' in match.group(0) else f"[c{number:02}](https://t.me/c/{channel.id}/{message.id})"
-                
-                if series_name not in toc:
-                    toc[series_name] = {'volumes': [], 'chapters': []}
-                
-                if 'v' in match.group(0):
-                    toc[series_name]['volumes'].append(link)
-                else:
-                    toc[series_name]['chapters'].append(link)
+                tipo = 'v' if 'v' in match.group(0) else 'c'
+                enlace = f"[{tipo}{number:02}](https://t.me/c/{channel.id}/{message.id})"
+                serie = toc.agregar_serie(series_name)
+                serie.agregar_enlace(enlace, tipo)
 
-    # Crear y enviar la tabla de contenidos de cada serie
-    series_links = []
-    for series_name in toc.keys():
-        toc_message = f"**{series_name}**\n"
-
-        # Añadir los volúmenes primero, seguidos de los capítulos
-        if toc[series_name]['volumes']:
-            toc_message += "Volúmenes:\n"
-            for i in range(0, len(toc[series_name]['volumes']), 10):
-                toc_message += ' '.join(toc[series_name]['volumes'][i:i+10]) + '\n'
-
-        if toc[series_name]['chapters']:
-            toc_message += "Capítulos:\n"
-            for i in range(0, len(toc[series_name]['chapters']), 10):
-                toc_message += ' '.join(toc[series_name]['chapters'][i:i+10]) + '\n'
-
-        toc_message += "#tableOfContents"  # Añadir #tableOfContents al final de cada mensaje
-
-        series_message = await client.send_message(channel, toc_message)
-        series_link = f"📚 **[{series_name}](https://t.me/c/{channel.id}/{series_message.id})**"
-        series_links.append(f"• {series_link}")
-
-    # Ordenar la tabla de contenidos general alfabéticamente por nombre de serie
-    series_links = sorted(series_links, key=lambda x: x.lower())
-
-    # Crear la tabla de contenidos general con formato y emojis
-    toc_overview_message = "📖 **TABLA DE CONTENIDOS DE SERIES**\n\n" + "\n".join(series_links) + "\n#tableOfContents"
-    print("Tabla de Contenidos de Series generada:")
-    print(toc_overview_message)
-
-    # Enviar la tabla de contenidos general al canal y fijar el mensaje
-    toc_overview_msg = await client.send_message(channel, toc_overview_message)
-    await client.pin_message(channel, toc_overview_msg, notify=False)
-    print(f"Tabla de contenidos general fijada (mensaje {toc_overview_msg.id}).")
+    await toc.generar_toc_general(client, channel)
 
 if __name__ == "__main__":
     with client:
